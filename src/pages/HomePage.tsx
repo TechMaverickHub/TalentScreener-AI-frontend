@@ -1,8 +1,24 @@
+import { useEffect } from 'react'
 import { Box, Typography, Grid, Card, CardContent, CardActions, Button } from '@mui/material'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Upload, Work, Search } from '@mui/icons-material'
+import { useAuthStore } from '@/store/authStore'
 
 const HomePage = () => {
+  const navigate = useNavigate()
+  const { isAuthenticated, authData } = useAuthStore()
+
+  useEffect(() => {
+    // Redirect authenticated users to their dashboard
+    if (isAuthenticated && authData) {
+      const userRole = authData.user?.role?.name || ''
+      if (userRole === 'Admin') {
+        navigate('/admin/dashboard', { replace: true })
+      } else if (userRole === 'Regular User') {
+        navigate('/dashboard', { replace: true })
+      }
+    }
+  }, [isAuthenticated, authData, navigate])
   const features = [
     {
       title: 'Upload Resume',

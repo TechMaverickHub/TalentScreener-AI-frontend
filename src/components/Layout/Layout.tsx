@@ -15,12 +15,37 @@ const Layout = ({ children }: LayoutProps) => {
   const { isAuthenticated, authData, logout } = useAuthStore()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
-  const navItems = [
-    { path: '/', label: 'Home', icon: <Work /> },
-    { path: '/resume/upload', label: 'Upload Resume', icon: <Description /> },
-    { path: '/job/post', label: 'Post Job', icon: <Work /> },
-    { path: '/match', label: 'Match Resume', icon: <Search /> },
-  ]
+  // Get user role
+  const userRole = authData?.user?.role?.name || ''
+  const isAdmin = userRole === 'Admin'
+  const isRegularUser = userRole === 'Regular User'
+
+  // Define navigation items based on role
+  const getNavItems = () => {
+    if (!isAuthenticated) {
+      return [{ path: '/', label: 'Home', icon: <Work /> }]
+    }
+
+    if (isAdmin) {
+      return [
+        { path: '/admin/dashboard', label: 'Dashboard', icon: <Work /> },
+        { path: '/job/post', label: 'Post Job', icon: <Work /> },
+        { path: '/job/list', label: 'Manage Jobs', icon: <Work /> },
+      ]
+    }
+
+    if (isRegularUser) {
+      return [
+        { path: '/dashboard', label: 'Dashboard', icon: <Work /> },
+        { path: '/resume/upload', label: 'Upload Resume', icon: <Description /> },
+        { path: '/match', label: 'Match Jobs', icon: <Search /> },
+      ]
+    }
+
+    return [{ path: '/', label: 'Home', icon: <Work /> }]
+  }
+
+  const navItems = getNavItems()
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)

@@ -29,7 +29,15 @@ const LoginPage = () => {
     mutationFn: login,
     onSuccess: (data) => {
       setAuth(data)
-      navigate('/')
+      // Redirect to appropriate dashboard based on role
+      const userRole = data.user?.role?.name || ''
+      if (userRole === 'Admin') {
+        navigate('/admin/dashboard', { replace: true })
+      } else if (userRole === 'Regular User') {
+        navigate('/dashboard', { replace: true })
+      } else {
+        navigate('/', { replace: true })
+      }
     },
   })
 
