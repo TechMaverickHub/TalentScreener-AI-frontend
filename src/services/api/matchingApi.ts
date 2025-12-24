@@ -11,279 +11,301 @@ export interface MatchResult {
   experience_match: boolean
 }
 
-interface ApiSearchResult {
+// Actual API response structure from vector search
+export interface VectorSearchChunk {
   score: number
   metadata: {
     type: string
     chunk_index: number
     chunk_total: number
+    [key: string]: any // Allow additional metadata fields
   }
   content: string
 }
 
-interface ApiMatchResponse {
+export interface MatchResponse {
   message: string
   status: number
-  results: ApiSearchResult[]
+  results: VectorSearchChunk[]
 }
 
-// Helper function to extract skills from content text
-const extractSkillsFromContent = (content: string): string[] => {
+/**
+ * Extract skills from chunk content text
+ */
+function extractSkillsFromContent(content: string): string[] {
   const skills: string[] = []
-  const skillSet = new Set<string>()
   
   // Look for skills sections with various formats
-  const skillsPatterns = [
-    /\*\*Skills[^*]*\*\*\s*([\s\S]*?)(?=\n\n|\*\*|$)/i,
-    /Skills[:\s]*\n([\s\S]*?)(?=\n\n|\*\*|$)/i,
-  ]
-  
-  for (const pattern of skillsPatterns) {
-    const skillsMatch = content.match(pattern)
-    if (skillsMatch) {
-      const skillsText = skillsMatch[1]
-      // Extract skills from bullet points, dashes, or comma-separated lists
-      const lines = skillsText.split(/\n/)
-      lines.forEach(line => {
-        // Remove markdown formatting and bullet points
-        let cleanLine = line.replace(/^[\s*\-•]\s*/, '').replace(/\*\*/g, '').trim()
-        
-        // Skip lines that are too long (likely descriptions, not skills)
-        if (cleanLine.length > 100) return
-        
-        // Extract skills separated by commas
-        if (cleanLine.includes(',')) {
-          const commaSkills = cleanLine.split(',').map(s => s.trim()).filter(Boolean)
-          commaSkills.forEach(skill => {
-            if (skill.length > 1 && skill.length < 50) {
-              skillSet.add(skill)
-            }
-          })
-        } else if (cleanLine.length > 1 && cleanLine.length < 50) {
-          // Single skill on a line
-          skillSet.add(cleanLine)
-        }
-      })
-    }
+  // Pattern 1: "Skills / Technologies" followed by bullet points or dashes
+  const skillsSectionMatch = content.match(/(?:Skills|Technologies)[\s\S]*?(?:\n|$)/i)
+  if (skillsSectionMatch) {
+    const skillsSection = skillsSectionMatch[0]
+    // Extract lines that start with - or • or are comma-separated
+    const skillLines = skillsSection
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .filter(line => !line.match(/^(?:Skills|Technologies)/i))
+    
+    skillLines.forEach(line => {
+      // Remove markdown formatting
+      let cleanLine = line.replace(/^\*\*.*?\*\*\s*/, '')
+        .replace(/^[-•]\s*/, '')
+        .trim()
+      
+      // Split by comma if present
+      if (cleanLine.includes(',')) {
+        const commaSkills = cleanLine.split(',').map(s => s.trim())
+        skills.push(...commaSkills)
+      } else if (cleanLine.length > 0) {
+        skills.push(cleanLine)
+      }
+    })
   }
   
-  // Also look for common skill patterns in the entire content
-  const commonTechSkills = [
-    'Python', 'Java', 'JavaScript', 'TypeScript', 'SQL', 'Django', 'DRF', 'FastAPI', 'Flask',
-    'Node.js', 'React', 'Vue', 'Angular', 'TensorFlow', 'PyTorch', 'scikit-learn', 'Pandas',
-    'PostgreSQL', 'MongoDB', 'AWS', 'Docker', 'Kubernetes', 'MLOps', 'SageMaker',
-    'LangChain', 'LLMs', 'RAG', 'Hugging Face', 'Supabase', 'Streamlit', 'Groq',
-    'Llama3', 'pgvector', 'Chroma', 'SentenceTransformers', 'MCP', 'Spring AOP',
-    'Resend API', 'APScheduler', 'RBAC', 'AWS S3'
+  // Pattern 2: Look for common tech stack keywords in the entire content
+  const commonTechStack = [
+    'Python', 'Java', 'JavaScript', 'TypeScript', 'Node.js',
+    'Django', 'Flask', 'FastAPI', 'DRF', 'Spring',
+    'React', 'Vue', 'Angular', 'Next.js',
+    'TensorFlow', 'PyTorch', 'scikit-learn', 'Keras',
+    'SQL', 'PostgreSQL', 'MySQL', 'MongoDB', 'Redis',
+    'AWS', 'SageMaker', 'S3', 'EC2', 'Lambda',
+    'Docker', 'Kubernetes', 'CI/CD',
+    'LLMs', 'LLM', 'RAG', 'LangChain', 'Hugging Face',
+    'Pandas', 'NumPy', 'Matplotlib',
+    'Git', 'REST', 'GraphQL', 'gRPC',
+    'MLOps', 'Data Pipeline', 'Vector Database', 'pgvector', 'Chroma',
+    'Supabase', 'Groq', 'Llama', 'SentenceTransformers', 'MCP'
   ]
   
-  commonTechSkills.forEach(skill => {
-    // Check if skill appears in content (case-insensitive, whole word or as part of a phrase)
-    const skillRegex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
-    if (skillRegex.test(content) && !Array.from(skillSet).some(s => 
-      s.toLowerCase() === skill.toLowerCase() || 
-      s.toLowerCase().includes(skill.toLowerCase()) ||
-      skill.toLowerCase().includes(s.toLowerCase())
-    )) {
-      skillSet.add(skill)
+  commonTechStack.forEach(tech => {
+    const regex = new RegExp(`\\b${tech.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
+    if (regex.test(content)) {
+      // Check if we already have this skill (case-insensitive)
+      const techLower = tech.toLowerCase()
+      if (!skills.some(s => s.toLowerCase() === techLower)) {
+        skills.push(tech)
+      }
     }
   })
   
-  return Array.from(skillSet)
+  // Clean up skills - remove empty strings and normalize
+  return skills
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+    .filter((s, idx, arr) => arr.findIndex(t => t.toLowerCase() === s.toLowerCase()) === idx) // Remove duplicates (case-insensitive)
 }
 
-// Helper function to extract experience requirement from content
-const extractExperienceRequirement = (content: string): number | null => {
-  const experienceMatch = content.match(/(\d+)\+?\s*years?\s*(?:of\s*)?(?:hands[- ]?on\s*)?experience/i)
+/**
+ * Extract years of experience requirement from content
+ */
+function extractExperienceRequirement(content: string): number | null {
+  const experienceMatch = content.match(/(\d+)\+?\s*years?\s*(?:of\s*)?experience/gi)
   if (experienceMatch) {
-    return parseInt(experienceMatch[1], 10)
+    const years = experienceMatch.map(m => {
+      const numMatch = m.match(/(\d+)/)
+      return numMatch ? parseInt(numMatch[1], 10) : null
+    }).filter((y): y is number => y !== null)
+    return years.length > 0 ? Math.max(...years) : null
   }
   return null
 }
 
-// Helper function to extract job title from content
-const extractJobTitle = (content: string, index: number): string => {
-  // Look for common job title patterns at the start
+/**
+ * Extract job title from content (if available)
+ */
+function extractJobTitle(content: string): string {
+  // Look for "Summary / Role Overview" section
+  const summaryMatch = content.match(/(?:Summary|Role Overview|Position|Title)[\s\S]*?\n([^\n]+)/i)
+  if (summaryMatch && summaryMatch[1]) {
+    let title = summaryMatch[1].trim()
+    // Remove markdown formatting
+    title = title.replace(/^\*\*.*?\*\*\s*/, '').replace(/\*\*/g, '')
+    // Extract first sentence or first 80 characters
+    title = title.split('.')[0].trim()
+    if (title.length > 0 && title.length < 100) {
+      return title
+    }
+  }
+  
+  // Look for common job title patterns in the content
   const titlePatterns = [
-    /(Machine Learning Engineer|ML Engineer|Data Scientist|Software Engineer|Backend Developer|Frontend Developer|Full Stack Developer|DevOps Engineer)[^\n]*/i,
-    /Role Overview[:\s]+([^\n]+)/i,
-    /\*\*([^*]+)\*\*/,
+    /(?:Machine Learning|ML|Data Science|Software|Backend|Frontend|Full Stack|DevOps)\s+(?:Engineer|Developer|Specialist|Analyst)/i,
+    /(?:Senior|Junior|Lead)?\s*(?:Engineer|Developer|Manager|Architect)/i,
   ]
   
   for (const pattern of titlePatterns) {
     const match = content.match(pattern)
     if (match) {
-      const title = match[1] || match[0]
-      const cleanTitle = title.trim()
-      if (cleanTitle.length > 3 && 
-          !cleanTitle.toLowerCase().includes('skills') && 
-          !cleanTitle.toLowerCase().includes('requirements') &&
-          !cleanTitle.toLowerCase().includes('summary') &&
-          !cleanTitle.toLowerCase().includes('technologies')) {
-        // Extract just the job title part (before "with" or "for")
-        const titlePart = cleanTitle.split(/\s+(?:with|for|at|in)\s+/i)[0]
-        return titlePart.trim()
+      return match[0].trim()
+    }
+  }
+  
+  // Fallback: extract from first meaningful line
+  const lines = content.split('\n').filter(l => l.trim().length > 0)
+  for (const line of lines) {
+    const cleanLine = line.replace(/^\*\*.*?\*\*\s*/, '').trim()
+    if (cleanLine.length > 10 && cleanLine.length < 100 && 
+        (cleanLine.match(/(?:Engineer|Developer|Manager|Analyst|Specialist|Architect)/i))) {
+      return cleanLine
+    }
+  }
+  
+  return 'Job Opportunity'
+}
+
+/**
+ * Group chunks by job (using metadata if available, otherwise by similarity)
+ */
+function groupChunksByJob(chunks: VectorSearchChunk[]): Map<string, VectorSearchChunk[]> {
+  const grouped = new Map<string, VectorSearchChunk[]>()
+  
+  // Try to group by job ID if available in metadata
+  const hasJobId = chunks.some(c => c.metadata?.job_id || c.metadata?.id)
+  
+  if (hasJobId) {
+    chunks.forEach(chunk => {
+      const jobId = chunk.metadata?.job_id || chunk.metadata?.id || 'unknown'
+      if (!grouped.has(jobId)) {
+        grouped.set(jobId, [])
       }
-    }
-  }
-  
-  // Look for job title in the first line if it contains common job title keywords
-  const firstLine = content.split('\n')[0]?.trim() || ''
-  const jobTitleKeywords = ['Engineer', 'Developer', 'Scientist', 'Analyst', 'Manager', 'Specialist', 'Architect']
-  if (jobTitleKeywords.some(keyword => firstLine.includes(keyword)) && firstLine.length < 100) {
-    const titlePart = firstLine.split(/\s+(?:with|for|at|in)\s+/i)[0]
-    return titlePart.trim()
-  }
-  
-  // Default fallback
-  return `Job Match ${index + 1}`
-}
-
-// Helper function to normalize skill names for comparison
-const normalizeSkill = (skill: string): string => {
-  return skill.trim().toLowerCase().replace(/[^\w\s]/g, '')
-}
-
-// Helper function to compare skills
-const compareSkills = (resumeSkills: string[], jobSkills: string[]): {
-  matched: string[]
-  missing: string[]
-} => {
-  const normalizedResumeSkills = resumeSkills.map(normalizeSkill)
-  const matched: string[] = []
-  const missing: string[] = []
-  
-  jobSkills.forEach(jobSkill => {
-    const normalizedJobSkill = normalizeSkill(jobSkill)
-    const found = normalizedResumeSkills.some(normalizedResumeSkill => 
-      normalizedResumeSkill === normalizedJobSkill ||
-      normalizedResumeSkill.includes(normalizedJobSkill) ||
-      normalizedJobSkill.includes(normalizedResumeSkill)
-    )
-    
-    if (found) {
-      matched.push(jobSkill)
-    } else {
-      missing.push(jobSkill)
-    }
-  })
-  
-  return { matched, missing }
-}
-
-// Helper function to create a content signature for grouping
-const createContentSignature = (content: string): string => {
-  // Extract key phrases that are likely to be unique to a job
-  const lines = content.split('\n').filter(line => line.trim().length > 10)
-  const firstLine = lines[0]?.substring(0, 60).replace(/\s+/g, ' ').trim() || ''
-  const skillsLine = content.match(/Skills[^\n]*\n([^\n]+)/i)?.[1]?.substring(0, 40) || ''
-  return `${firstLine}-${skillsLine}`.toLowerCase()
-}
-
-// Transform API response chunks into MatchResult objects
-const transformApiResponse = (
-  apiResults: ApiSearchResult[],
-  resumeData: ResumeData
-): MatchResult[] => {
-  // Group chunks by job
-  // Strategy: Group chunks with same chunk_total and similar content signatures
-  const jobGroups = new Map<string, ApiSearchResult[]>()
-  
-  apiResults.forEach((result, index) => {
-    let key: string
-    
-    if (result.metadata?.chunk_total && result.metadata.chunk_total > 1) {
-      // For multi-chunk jobs, create a signature from chunk_total and content
-      const signature = createContentSignature(result.content)
-      key = `job-${result.metadata.chunk_total}-${signature.substring(0, 40)}`
-    } else {
-      // Single chunk jobs - use content signature to deduplicate
-      const signature = createContentSignature(result.content)
-      key = `job-single-${signature.substring(0, 40)}`
-    }
-    
-    if (!jobGroups.has(key)) {
-      jobGroups.set(key, [])
-    }
-    jobGroups.get(key)!.push(result)
-  })
-  
-  // Sort chunks within each group by chunk_index
-  jobGroups.forEach((chunks) => {
-    chunks.sort((a, b) => {
-      const indexA = a.metadata?.chunk_index ?? 0
-      const indexB = b.metadata?.chunk_index ?? 0
-      return indexA - indexB
+      grouped.get(jobId)!.push(chunk)
     })
+    return grouped
+  }
+  
+  // If no job IDs, try to group by chunk_total and content similarity
+  // Chunks with the same chunk_total and sequential chunk_index likely belong to same job
+  const byChunkTotal = new Map<number, VectorSearchChunk[]>()
+  
+  chunks.forEach(chunk => {
+    const total = chunk.metadata?.chunk_total || 1
+    if (!byChunkTotal.has(total)) {
+      byChunkTotal.set(total, [])
+    }
+    byChunkTotal.get(total)!.push(chunk)
   })
   
-  // Transform each group into a MatchResult
+  // Group chunks that have the same chunk_total
+  // This assumes chunks from the same job have the same chunk_total
+  let jobIndex = 0
+  byChunkTotal.forEach((chunkGroup) => {
+    // Sort by chunk_index to maintain order
+    chunkGroup.sort((a, b) => (a.metadata?.chunk_index || 0) - (b.metadata?.chunk_index || 0))
+    grouped.set(`job-${jobIndex++}`, chunkGroup)
+  })
+  
+  // If grouping didn't help (all chunks have different chunk_total), treat each as separate
+  if (grouped.size === chunks.length) {
+    // This means each chunk is likely from a different job
+    grouped.clear()
+    chunks.forEach((chunk, index) => {
+      grouped.set(`job-${index}`, [chunk])
+    })
+  }
+  
+  return grouped
+}
+
+/**
+ * Transform vector search chunks into MatchResult objects
+ */
+function transformChunksToMatchResults(
+  chunks: VectorSearchChunk[],
+  resumeData: ResumeData
+): MatchResult[] {
+  const groupedChunks = groupChunksByJob(chunks)
   const matchResults: MatchResult[] = []
   
-  jobGroups.forEach((chunks, groupKey) => {
+  groupedChunks.forEach((chunkGroup, jobId) => {
     // Combine all chunks for this job
-    const combinedContent = chunks.map(c => c.content).join('\n\n')
+    const combinedContent = chunkGroup.map(c => c.content).join('\n\n')
+    const avgScore = chunkGroup.reduce((sum, c) => sum + c.score, 0) / chunkGroup.length
     
-    // Get the highest score from chunks
-    const maxScore = Math.max(...chunks.map(c => c.score))
-    
-    // Extract job information
-    const jobSkills = extractSkillsFromContent(combinedContent)
+    // Extract information from combined content
+    const extractedSkills = extractSkillsFromContent(combinedContent)
     const experienceReq = extractExperienceRequirement(combinedContent)
-    const jobTitle = extractJobTitle(combinedContent, matchResults.length)
+    const jobTitle = extractJobTitle(combinedContent)
     
-    // Compare skills
-    const { matched, missing } = compareSkills(resumeData.skills, jobSkills)
+    // Calculate matched and missing skills
+    const resumeSkillsLower = resumeData.skills.map(s => s.toLowerCase())
+    const extractedSkillsLower = extractedSkills.map(s => s.toLowerCase())
+    
+    const matchedSkills = extractedSkills.filter((skill, idx) => {
+      const skillLower = skill.toLowerCase()
+      return resumeSkillsLower.some(rs => 
+        rs.includes(skillLower) || skillLower.includes(rs) ||
+        skillLower === rs
+      )
+    })
+    
+    const missingSkills = extractedSkills.filter((skill, idx) => {
+      const skillLower = skill.toLowerCase()
+      return !resumeSkillsLower.some(rs => 
+        rs.includes(skillLower) || skillLower.includes(rs) ||
+        skillLower === rs
+      )
+    })
     
     // Check experience match
     const experienceMatch = experienceReq === null || 
       resumeData.years_of_experience >= experienceReq
     
-    // Calculate match score (convert 0-1 to 0-100 and factor in skill match)
-    const skillMatchRatio = jobSkills.length > 0 
-      ? matched.length / jobSkills.length 
-      : 0
-    const baseScore = maxScore * 100
-    const skillBonus = skillMatchRatio * 20 // Up to 20 points for skill matching
-    const experienceBonus = experienceMatch ? 10 : 0 // 10 points for experience match
-    const matchScore = Math.min(100, Math.round(baseScore + skillBonus + experienceBonus))
-    
-    // Create JobData
+    // Create job data
     const jobData: JobData = {
+      id: jobId,
       title: jobTitle,
       description: combinedContent,
       parsed_data: {
         years_of_experience: experienceReq || 0,
-        skills: jobSkills,
+        skills: extractedSkills,
         technical_experience: combinedContent,
-        summary: combinedContent.substring(0, 200) + '...'
-      }
+        summary: chunkGroup.find(c => c.content.includes('Summary') || c.content.includes('Overview'))?.content || null,
+      },
     }
+    
+    // Convert score from 0-1 range to 0-100 percentage
+    const matchScore = Math.round(avgScore * 100)
     
     matchResults.push({
       job: jobData,
       match_score: matchScore,
-      matched_skills: matched,
-      missing_skills: missing,
-      experience_match: experienceMatch
+      matched_skills: matchedSkills,
+      missing_skills: missingSkills,
+      experience_match: experienceMatch,
     })
   })
   
-  // Sort by match score descending
+  // Sort by match score (highest first)
   return matchResults.sort((a, b) => b.match_score - a.match_score)
 }
 
 export const matchResumeToJobs = async (resumeData: ResumeData): Promise<MatchResult[]> => {
-  const response = await apiClient.post<ApiMatchResponse>(
+  const response = await apiClient.post<MatchResponse>(
     API_ENDPOINTS.RESUME_MATCH,
     { resume_data: resumeData }
   )
 
-  // Transform the API response into MatchResult format
-  if (!response.data.results || response.data.results.length === 0) {
-    return []
+  // Check if results is already in MatchResult format (backward compatibility)
+  if (response.data.results && response.data.results.length > 0) {
+    const firstResult = response.data.results[0]
+    
+    // Check if it's already a MatchResult (has 'job' property)
+    if ('job' in firstResult && 'match_score' in firstResult) {
+      return Array.isArray(response.data.results)
+        ? (response.data.results as MatchResult[])
+        : [response.data.results as MatchResult]
+    }
+    
+    // Otherwise, it's vector search chunks - transform them
+    if ('score' in firstResult && 'content' in firstResult) {
+      return transformChunksToMatchResults(
+        response.data.results as VectorSearchChunk[],
+        resumeData
+      )
+    }
   }
 
-  return transformApiResponse(response.data.results, resumeData)
+  return []
 }
 
