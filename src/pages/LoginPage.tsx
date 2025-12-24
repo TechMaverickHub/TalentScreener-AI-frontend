@@ -31,7 +31,8 @@ const LoginPage = () => {
       setAuth(data)
       // Redirect to appropriate dashboard based on role
       const userRole = data.user?.role?.name || ''
-      if (userRole === 'Admin') {
+      // Check if user is admin (Admin or Super Admin)
+      if (userRole === 'Admin' || userRole === 'Super Admin') {
         navigate('/admin/dashboard', { replace: true })
       } else if (userRole === 'Regular User') {
         navigate('/dashboard', { replace: true })

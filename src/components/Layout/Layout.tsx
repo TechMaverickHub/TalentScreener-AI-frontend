@@ -17,7 +17,8 @@ const Layout = ({ children }: LayoutProps) => {
 
   // Get user role
   const userRole = authData?.user?.role?.name || ''
-  const isAdmin = userRole === 'Admin'
+  // Check if user is admin (Admin or Super Admin)
+  const isAdmin = userRole === 'Admin' || userRole === 'Super Admin'
   const isRegularUser = userRole === 'Regular User'
 
   // Define navigation items based on role

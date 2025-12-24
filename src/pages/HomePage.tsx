@@ -12,7 +12,8 @@ const HomePage = () => {
     // Redirect authenticated users to their dashboard
     if (isAuthenticated && authData) {
       const userRole = authData.user?.role?.name || ''
-      if (userRole === 'Admin') {
+      // Check if user is admin (Admin or Super Admin)
+      if (userRole === 'Admin' || userRole === 'Super Admin') {
         navigate('/admin/dashboard', { replace: true })
       } else if (userRole === 'Regular User') {
         navigate('/dashboard', { replace: true })
