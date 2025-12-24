@@ -1,7 +1,9 @@
 import { ReactNode } from 'react'
-import { AppBar, Toolbar, Typography, Container, Box } from '@mui/material'
-import { Link, useLocation } from 'react-router-dom'
-import { Work, Description, Search } from '@mui/icons-material'
+import { AppBar, Toolbar, Typography, Container, Box, Button, Menu, MenuItem } from '@mui/material'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Work, Description, Search, AccountCircle } from '@mui/icons-material'
+import { useAuthStore } from '@/store/authStore'
+import { useState } from 'react'
 
 interface LayoutProps {
   children: ReactNode
@@ -9,6 +11,9 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { isAuthenticated, authData, logout } = useAuthStore()
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
   const navItems = [
     { path: '/', label: 'Home', icon: <Work /> },
@@ -17,6 +22,20 @@ const Layout = ({ children }: LayoutProps) => {
     { path: '/match', label: 'Match Resume', icon: <Search /> },
   ]
 
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
+
+  const handleMenuClose = () => {
+    setAnchorEl(null)
+  }
+
+  const handleLogout = () => {
+    logout()
+    handleMenuClose()
+    navigate('/login')
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
@@ -24,7 +43,7 @@ const Layout = ({ children }: LayoutProps) => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Talent Screen
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -47,6 +66,47 @@ const Layout = ({ children }: LayoutProps) => {
                 {item.label}
               </Link>
             ))}
+            {isAuthenticated && authData ? (
+              <>
+                <Button
+                  color="inherit"
+                  onClick={handleMenuOpen}
+                  startIcon={<AccountCircle />}
+                  sx={{ ml: 2 }}
+                >
+                  {authData.user.first_name} {authData.user.last_name}
+                </Button>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                >
+                  <MenuItem disabled>
+                    <Typography variant="body2" color="text.secondary">
+                      {authData.user.email}
+                    </Typography>
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                </Menu>
+              </>
+            ) : (
+              <Button
+                color="inherit"
+                component={Link}
+                to="/login"
+                sx={{ ml: 2 }}
+              >
+                Login
+              </Button>
+            )}
           </Box>
         </Toolbar>
       </AppBar>

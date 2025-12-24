@@ -5,6 +5,8 @@ export const API_ENDPOINTS = {
   RESUME_UPLOAD: '/api/jobrole/resume-upload-1/',
   JOB_STORE: '/api/jobrole/store-jd-1',
   RESUME_MATCH: '/api/jobrole/search-job-by-resume-1/',
+  LOGIN: '/api/user/login/',
+  REGISTER: '/api/user/register/',
 } as const
 
 export const STORAGE_KEYS = {
