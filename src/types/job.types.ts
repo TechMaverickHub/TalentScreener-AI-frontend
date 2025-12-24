@@ -23,3 +23,21 @@ export interface JobStoreResponse {
   }
 }
 
+export interface JobRoleFilterItem {
+  title: string
+  description: string | ResumeData // Can be JSON string or parsed object
+}
+
+export interface JobRoleFilterResponse {
+  count: number
+  next: string | null
+  previous: string | null
+  results: JobRoleFilterItem[]
+}
+
+export interface JobRoleFilterParams {
+  title?: string
+  description?: string
+  page?: number
+}
+

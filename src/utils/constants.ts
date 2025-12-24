@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
   RESUME_MATCH: '/api/jobrole/resume-match-jobs/',
   LOGIN: '/api/user/login/',
   REGISTER: '/api/user/register/',
+  JOB_ROLE_LIST_FILTER: '/api/jobrole/list-filter',
 } as const
 
 export const STORAGE_KEYS = {
