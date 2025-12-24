@@ -9,12 +9,25 @@ import {
   Typography,
   Alert,
   Link as MuiLink,
+  InputAdornment,
+  IconButton,
+  Snackbar,
 } from '@mui/material'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
 import { useMutation } from '@tanstack/react-query'
+import { AxiosError } from 'axios'
 import { login } from '@/services/api/authApi'
 import { useAuthStore } from '@/store/authStore'
 import { LoginCredentials } from '@/types/auth.types'
 import Loading from '@/components/common/Loading'
+
+interface ErrorResponse {
+  message?: string
+  status?: number
+  results?: {
+    detail?: string | string[]
+  }
+}
 
 const LoginPage = () => {
   const navigate = useNavigate()
@@ -24,6 +37,9 @@ const LoginPage = () => {
     password: '',
   })
   const [errors, setErrors] = useState<Partial<Record<keyof LoginCredentials, string>>>({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [snackbarOpen, setSnackbarOpen] = useState(false)
+  const [snackbarMessage, setSnackbarMessage] = useState('')
 
   const loginMutation = useMutation({
     mutationFn: login,
@@ -39,6 +55,33 @@ const LoginPage = () => {
       } else {
         navigate('/', { replace: true })
       }
+    },
+    onError: (error: AxiosError<ErrorResponse>) => {
+      // Handle password mismatch error
+      if (error.response?.status === 400) {
+        const errorData = error.response.data
+        const detail = errorData?.results?.detail
+        
+        if (detail) {
+          // Handle array or string detail
+          const errorMessage = Array.isArray(detail) ? detail[0] : detail
+          if (errorMessage === 'Password Mismatch.' || errorMessage.includes('Password')) {
+            setSnackbarMessage(errorMessage)
+            setSnackbarOpen(true)
+            return
+          }
+        }
+      }
+      
+      // For other errors, show in alert
+      const errorMessage = error.response?.data?.results?.detail
+        ? (Array.isArray(error.response.data.results.detail)
+            ? error.response.data.results.detail[0]
+            : error.response.data.results.detail)
+        : error.message || 'Login failed. Please check your credentials and try again.'
+      
+      setSnackbarMessage(errorMessage)
+      setSnackbarOpen(true)
     },
   })
 
@@ -77,6 +120,18 @@ const LoginPage = () => {
     }
   }
 
+  const handleClickShowPassword = () => {
+    setShowPassword((show) => !show)
+  }
+
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+  }
+
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false)
+  }
+
   return (
     <Container maxWidth="sm">
       <Box
@@ -96,13 +151,6 @@ const LoginPage = () => {
             Sign in to your account to continue
           </Typography>
 
-          {loginMutation.isError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {loginMutation.error instanceof Error
-                ? loginMutation.error.message
-                : 'Login failed. Please check your credentials and try again.'}
-            </Alert>
-          )}
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
             <TextField
@@ -125,13 +173,27 @@ const LoginPage = () => {
               fullWidth
               name="password"
               label="Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               id="password"
               autoComplete="current-password"
               value={formData.password}
               onChange={handleChange('password')}
               error={!!errors.password}
               helperText={errors.password}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleClickShowPassword}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
 
             {loginMutation.isPending && <Loading message="Logging in..." />}
@@ -157,6 +219,21 @@ const LoginPage = () => {
           </Box>
         </Paper>
       </Box>
+      
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity="error"
+          sx={{ width: '100%' }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Container>
   )
 }
