@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { Box, Typography, Grid, Card, CardContent, CardActions, Button, Paper } from '@mui/material'
-import { Upload, Search, Description } from '@mui/icons-material'
+import { Upload, Search } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useResumeStore } from '@/store/resumeStore'
@@ -19,14 +18,7 @@ const UserDashboard = () => {
       color: '#1976d2',
     },
     {
-      title: 'My Resumes',
-      description: `View and manage your uploaded resumes. You have ${resumes.length} resume${resumes.length !== 1 ? 's' : ''} uploaded.`,
-      icon: <Description sx={{ fontSize: 40 }} />,
-      link: '/resume/list',
-      color: '#2e7d32',
-    },
-    {
-      title: 'Find Matching Jobs',
+      title: 'Match Resume',
       description: 'Match your resume against available job postings and see compatibility scores.',
       icon: <Search sx={{ fontSize: 40 }} />,
       link: '/match',
@@ -41,13 +33,13 @@ const UserDashboard = () => {
           Welcome back, {authData?.user?.first_name}!
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Manage your resumes and find the perfect job match
+          Upload your resume and find matching job opportunities
         </Typography>
       </Box>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {quickActions.map((action) => (
-          <Grid item xs={12} md={4} key={action.title}>
+          <Grid item xs={12} md={6} key={action.title}>
             <Card
               sx={{
                 height: '100%',

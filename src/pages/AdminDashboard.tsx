@@ -1,5 +1,5 @@
 import { Box, Typography, Grid, Card, CardContent, CardActions, Button, Paper } from '@mui/material'
-import { Work, PostAdd, List } from '@mui/icons-material'
+import { PostAdd } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useJobStore } from '@/store/jobStore'
@@ -11,18 +11,11 @@ const AdminDashboard = () => {
 
   const adminActions = [
     {
-      title: 'Post New Job',
-      description: 'Create a new job posting. Our AI will parse it to extract requirements, skills, and qualifications.',
+      title: 'Upload Job',
+      description: 'Upload a new job description. Our AI will parse it to extract requirements, skills, and qualifications.',
       icon: <PostAdd sx={{ fontSize: 40 }} />,
       link: '/job/post',
       color: '#1976d2',
-    },
-    {
-      title: 'Manage Jobs',
-      description: `View and manage all job postings. You have ${jobs.length} job${jobs.length !== 1 ? 's' : ''} posted.`,
-      icon: <List sx={{ fontSize: 40 }} />,
-      link: '/job/list',
-      color: '#2e7d32',
     },
   ]
 
@@ -33,13 +26,13 @@ const AdminDashboard = () => {
           Admin Dashboard
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Welcome, {authData?.user?.first_name}! Manage job postings and find the best candidates.
+          Welcome, {authData?.user?.first_name}! Upload job descriptions to find the best matching candidates.
         </Typography>
       </Box>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} sx={{ mb: 4, justifyContent: 'center' }}>
         {adminActions.map((action) => (
-          <Grid item xs={12} md={6} key={action.title}>
+          <Grid item xs={12} md={6} sm={8} key={action.title}>
             <Card
               sx={{
                 height: '100%',

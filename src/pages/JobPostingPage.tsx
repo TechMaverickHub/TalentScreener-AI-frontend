@@ -10,10 +10,10 @@ const JobPostingPage = () => {
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
-        Post Job Description
+        Upload Job Description
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Post a job description and our AI will parse it to extract requirements, skills, and qualifications.
+        Upload a job description and our AI will parse it to extract requirements, skills, and qualifications.
       </Typography>
 
       {storeMutation.isPending && <Loading message="Storing and parsing job description..." />}

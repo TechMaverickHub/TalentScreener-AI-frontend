@@ -29,8 +29,7 @@ const Layout = ({ children }: LayoutProps) => {
     if (isAdmin) {
       return [
         { path: '/admin/dashboard', label: 'Dashboard', icon: <Work /> },
-        { path: '/job/post', label: 'Post Job', icon: <Work /> },
-        { path: '/job/list', label: 'Manage Jobs', icon: <Work /> },
+        { path: '/job/post', label: 'Upload Job', icon: <Work /> },
       ]
     }
 
@@ -38,7 +37,7 @@ const Layout = ({ children }: LayoutProps) => {
       return [
         { path: '/dashboard', label: 'Dashboard', icon: <Work /> },
         { path: '/resume/upload', label: 'Upload Resume', icon: <Description /> },
-        { path: '/match', label: 'Match Jobs', icon: <Search /> },
+        { path: '/match', label: 'Match Resume', icon: <Search /> },
       ]
     }
 
